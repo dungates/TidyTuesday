@@ -1,0 +1,116 @@
+---
+title: "The Big Mac Index"
+date: "[Return to Site](https://duncangates.me)"
+output: 
+  rmdformats::readthedown: 
+    self_contained: true # Other options are downcute, robobook, material, readthedown, html_clean, html_docco, lockdown, https://github.com/juba/rmdformats
+    thumbnails: false
+    lightbox: true
+    gallery: false
+    highlight: tango
+    number_sections: true
+    includes:
+      after_body: footer.html
+---
+
+
+```{r setup, include=FALSE}
+library(knitr)
+library(tidyverse)
+library(lares)
+library(ggthemes)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=FALSE,
+	             cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=100)
+
+htmltools::tagList(rmarkdown::html_dependency_font_awesome()) # Needed so fa's in footer will show
+theme_set(theme_economist())
+```
+
+# Tidy Tuesday
+
+
+```{r}
+big_mac <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-12-22/big-mac.csv')
+```
+
+## Looking at the data with Lares
+
+```{r}
+df_str(big_mac)
+str(big_mac) %>% kableExtra::kbl()
+```
+
+
+```{r}
+big_mac %>% corr_cross() + 
+  geom_col(fill = "steelblue") + 
+  theme_economist() +
+  ggtitle("Greatest cross correlations in data") +
+  theme(axis.text.x = element_blank())
+big_mac %>% corr_var(usd_raw) + 
+  geom_col() + 
+  theme_economist() + 
+  scale_fill_manual(values = c("red", "steelblue")) +
+  ggtitle("Correlations with raw index relative to US Dollar") +
+  theme(axis.text.x = element_blank())
+big_mac %>% corr_var(gdp_dollar, logs = T, clean = T, top = 20) + 
+  geom_col() + 
+  theme_economist() + 
+  scale_fill_manual(values = c("red", "steelblue")) +
+  ggtitle("Correlations with GDP per person in Dollars") +
+  theme(axis.text.x = element_blank())
+```
+
+## Plotting the data myself
+
+Looks like Turkey messed up so I filter it out in the next plot, Vietnam and Indonesia have similarly ridiculous numbers so I also filter those in the next plot, after that I decided the best way to do this was grouping the plots since there is no level at which all will be plotted reasonably.
+
+```{r}
+big_mac_pivot_local <- big_mac %>% 
+  select(-iso_a3, -currency_code) %>%
+  dplyr::select(local_price, dollar_ex, dollar_price, date, name) %>%
+  pivot_longer(!c(date, name), names_to = "currencies", values_to = "value")
+
+big_mac_pivot_local %>%
+  dplyr::mutate(currencies = gsub("dollar_ex", "Exchange Rate", currencies), 
+                currencies =  gsub("local_price", "Big Mac Local Price", currencies),
+                currencies =  gsub("dollar_price", "Big Mac Dollar Price", currencies)) %>%
+  ggplot(aes(date, value, color = currencies)) + 
+  geom_line() +
+  facet_wrap( ~ name, scales = "free_y") +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_x_date() +
+  scale_color_manual(values = c("steelblue", "red", "black")) +
+  labs(title = "Dollar Exchange Rate vs. Local Price for Big Mac", color = "", y = "Price", x = "") +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom",
+        axis.text.x = element_text(angle = 90))
+```
+
+
+```{r}
+big_mac_pivot_notlocal <- big_mac %>% 
+  select(-iso_a3, -currency_code) %>%
+  dplyr::select(-local_price, -dollar_ex, -dollar_price) %>%
+  pivot_longer(!c(date, name), names_to = "currencies", values_to = "value")
+ggplot(big_mac_pivot_notlocal, aes(date, value, color = currencies)) + 
+  geom_line() +
+  facet_wrap( ~ name, scales = "free_y") +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_x_date() +
+  scale_color_economist() +
+  labs(title = "Exchange Rates", color = "", y = "Price", x = "") +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom",
+        axis.text.x = element_text(angle = 90))
+```
+
