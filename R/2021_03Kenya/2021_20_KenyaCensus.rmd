@@ -45,7 +45,7 @@ theme_update(
 )
 
 kenya_colors <- c("#000000", "#922529", "#008C51", "#FFFFFF")
-show_col(kenya_colors)
+# show_col(kenya_colors)
 col <- colorRampPalette(kenya_colors)
 ```
 
@@ -114,7 +114,7 @@ g <- df_gender %>%
   coord_polar()
 cowplot::ggdraw(g) +
   theme(plot.background = element_rect(fill = "#171717", color = NA))
-ggsave(here("Images/KenyaPopGender.png"), width = 9, height = 9)
+ggsave(here("Images/2021_03Kenya/KenyaPopGender.png"), width = 9, height = 9)
 ```
 
 ```{r ag_household}
@@ -132,6 +132,7 @@ df_ag %>%
        subtitle = "Negative Correlations Mostly a Result of Lack of Data") + 
   theme(plot.title = element_text(hjust = 0.5),
         plot.subtitle = element_text(hjust = 0.5))
+# Looks like everything is correlated except for household size and most types of farming which seems strange
 
 # Make farming negative values
 df_ag_viz <- df_ag %>%
@@ -177,15 +178,17 @@ breaks_values <- pretty(as_vector(df_ag_viz %>% filter(County != "Kenya") %>% se
   coord_flip() +
   theme(legend.position = "none",
         axis.text.y = element_text(color = "gray70", size = 10),
-        plot.caption = element_text(vjust = -5),
+        plot.caption = element_text(),
         plot.subtitle = element_text(hjust = 0.5)))
-gg_ag_viz + geom_segment(aes(y = 0, yend = 1100000, x = "Kiambu", xend = "Kiambu"),
+(gg_ag_viz_arrow <- gg_ag_viz + geom_segment(aes(y = 800000, yend = 875000, x = "Kiambu", xend = "Kiambu"),
                  arrow = grid::arrow(length = unit(0.3, "cm"),
-                                                       ends = "both"), color = "gray70", size = 1.5) +
-  geom_segment(aes(y = -400000, yend = 0, x = "Kiambu", xend = "Kiambu"),
+                                                       ends = "last"), color = "white", size = 1.5) +
+  geom_segment(aes(y = -220000, yend = -420000, x = "Kiambu", xend = "Kiambu"),
                  arrow = grid::arrow(length = unit(0.3, "cm"),
-                                                       ends = "both"), color = "gray70", size = 1.5)
-ggsave(here("Images/HouseholdvsFarmingKenya.png"), width = 12, height = 9)
+                                                       ends = "last"), color = "white", size = 1.5) +
+  geom_text(aes(label = "Farming Population", x = "Kiambu", y = -365000), family = "Roboto Condensed", color = "white", vjust = -1) +
+  geom_text(aes(label = "Number of\n Households", x = "Kiambu", y = 835000), family = "Roboto Condensed", color = "white", vjust = -0.4))
+ggsave(here("Images/2021_03Kenya/HouseholdvsFarmingKenya.png"), width = 15, height = 11)
 ```
 
 ```{rkenyamap}
@@ -203,7 +206,7 @@ kenya_sf <- rKenyaCensus::KenyaCounties_SHP %>%
                show.legend = F,
                family = "Roboto Condensed",
                color = "gray10") +
-  scale_size(range = c(0, 4.5)) +
+  scale_size(range = c(0, 5.4)) +
   scale_fill_distiller(palette = "Greens", direction = 1, 
                        breaks = pretty_breaks(n = 5),
                        labels = percent) +
@@ -218,12 +221,15 @@ kenya_sf <- rKenyaCensus::KenyaCounties_SHP %>%
         plot.caption = element_text(color = "grey35", size = 10, family = "Roboto Condensed", vjust = 10)))
 (cow_gg_sf <- cowplot::ggdraw(gg_sf) +
   theme(plot.background = element_rect(fill = "#171717", color = NA)))
+ggsave(here("Images/2021_03Kenya/KenyaFarmMap.png"), width = 10, height = 10)
 ```
 
 ```{r paste-together}
-gg_ag_viz +
-  theme(panel.grid = element_blank()) +
-  annotation_custom(ggplotGrob(gg_sf), xmin = "Nakuru", xmax = "Mandera", ymin = 500000, ymax = 1100000)
+gg_ag_viz_arrow +
+  theme(panel.grid = element_blank(), 
+        plot.margin = unit(c(0.85, 4, 0.85, 0.85), "mm")) +
+  annotation_custom(ggplotGrob(gg_sf), xmin = "Machakos", xmax = "Mandera", ymin = 400000, ymax = 1000000)
+ggsave(here("Images/2021_03Kenya/MapandHouseHold.png"), width = 23.27267, height = 12.44848, dpi = 300)
 ```
 
 
