@@ -17,3 +17,6 @@
 
 # R Environment Variables
 .Renviron
+
+# R Project
+.Rproj.user

@@ -21,7 +21,7 @@ Quick Link
 
 ***
 
-### [2021/03](https://github.com/Z3tt/TidyTuesday/tree/master/plots/2020_52) 🇰🇪 Kenya Census by [Shelmith Kariuki](https://github.com/Shelmith-Kariuki/rKenyaCensus)
+### [2021/03](https://github.com/rfordatascience/tidytuesday/blob/master/data/2021/2021-01-19/readme.md) 🇰🇪 Kenya Census by [Shelmith Kariuki](https://github.com/Shelmith-Kariuki/rKenyaCensus)
 
 
 ***
@@ -29,7 +29,7 @@ Quick Link
 
 ***
 
-### [2020/52](https://github.com/Z3tt/TidyTuesday/tree/master/plots/2020_52) 🍔️ Big Mac Index by [The Economist](https://github.com/TheEconomist/big-mac-data)
+### [2020/52](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-12-22/readme.md) 🍔️ Big Mac Index by [The Economist](https://github.com/TheEconomist/big-mac-data)
 
 
 ***

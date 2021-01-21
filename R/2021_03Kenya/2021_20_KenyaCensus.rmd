@@ -1,0 +1,229 @@
+---
+title: "TidyTuesday 2021/03 - Kenya Census Data"
+author: "Duncan Gates"
+date: "20th of January 2021"
+output:
+  html_document:
+  theme: paper
+highlight: kate
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, fig.showtext = T, fig.retina = 1, fig.align = 'center')
+```
+
+
+```{r prep, message = F, warning = F}
+library(tidyverse)
+library(ggtext)
+library(here)
+library(sysfonts)
+library(scales)
+library(GGally)
+library(sf)
+# font_add_google()
+theme_set(theme_minimal(base_family = "Roboto Condensed"))
+
+theme_update(
+  legend.position = c(0.98,0.06),
+  legend.text = element_text(color = "white"),
+  legend.title = element_text(color = "white"),
+  axis.text.x = element_text(color = "gray70", size = 10),
+  axis.text.y = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  plot.margin = margin(25, 35, 15, 35),
+  plot.background = element_rect(fill = "#171717", color = "#171717"),
+  plot.title = element_text(color = "grey70", size = 24, family = "Roboto Black", face = "bold", hjust = 0.5),
+  plot.subtitle = element_text(color = "grey50", size = 13),
+  plot.caption = element_text(color = "grey35", size = 10,
+                              margin = margin(t = 0)),
+  panel.grid.minor = element_blank(),
+  panel.grid.major.y = element_blank()
+)
+
+kenya_colors <- c("#000000", "#922529", "#008C51", "#FFFFFF")
+show_col(kenya_colors)
+col <- colorRampPalette(kenya_colors)
+```
+
+```{r data}
+gender <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-01-19/gender.csv')
+crops <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-01-19/crops.csv')
+households <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-01-19/households.csv')
+kenya_census <- left_join(gender, households, by = c("County")) %>% 
+  left_join((crops %>% mutate(SubCounty = str_to_title(SubCounty))), by = c("County" = "SubCounty"))
+```
+
+
+```{r prep-data}
+df_gender <- kenya_census %>%
+  pivot_longer(names_to = "Gender", values_to = "Count", cols = c("Male", "Female", "Intersex")) %>% 
+  mutate(Population = replace_na(Total),
+         Prop = Count/Total) %>%
+  arrange(desc(Population)) %>%
+  mutate(pos = cumsum(Prop),
+    pos = if_else(!is.na(lag(pos)), pos - ((pos - lag(pos)) / 2), pos / 2),
+    angle = 90 - 360 * (pos - 0.5),
+    hjust = if_else(angle > 90, 0, 1),
+    angle = ifelse(angle > 90, angle + 180, angle), 
+    size = Population)
+  # mutate(Pos = cumsum((360*Prop/100) - (360*Prop/100/2)),
+  #        Pos = ifelse(Pos <= 180, Pos, Pos - 180))
+ag_sums <- kenya_census %>%
+  filter(County != "Total") %>%
+  select(is.numeric) %>%
+  colSums(na.rm = T)
+df_ag <- kenya_census %>%
+  bind_rows(ag_sums) %>%
+  mutate(County = replace_na(County, "Ag_total")) %>% arrange(desc(Population)) %>%
+  mutate(Population = replace_na(Total),
+         AverageHouseholdSize = ifelse(AverageHouseholdSize > 100,
+                                       NA,
+                                       AverageHouseholdSize),
+         AverageHouseholdSize = ifelse(is.na(AverageHouseholdSize),
+                                       mean(AverageHouseholdSize, na.rm = T),
+                                       AverageHouseholdSize)) %>%
+  filter(County != "Total") %>%
+  mutate(County = str_replace(County, "Ag_total", "Kenya"))
+```
+
+<center>![I want to make this.](https://shelkariuki.netlify.app/post/rkenyacensus/img/mutiso2.png)</center>
+
+```{r gender-pop, fig.height=9,fig.width=9}
+g <- df_gender %>%
+  # filter(County != "Total") %>% # Removed for Log Scale
+  ggplot(aes(x = fct_reorder(County, Population), y = Count, color = fct_relevel(Gender, c("Male", "Female", "Intersex")), fill = fct_relevel(Gender, c("Male", "Female", "Intersex")))) +
+  geom_col() +
+  # geom_text(aes(label = ifelse(Gender == "Male",
+  #                              scales::comma(Population),
+  #                              ""),
+  #               angle = angle,
+  #           hjust = hjust), 
+  #           position = position_stack(1.5),
+  #           size = 4, 
+  #           color = "grey50"
+  #           ) +
+  scale_y_log10(labels = scales::comma, breaks = scales::breaks_pretty(n = 10)) +
+  scale_fill_manual(values = c("#922529", "#008C51", "#FFFFFF")) +
+  labs(title = "Kenya's Population by Gender and County", fill = "Gender", caption = "(Log Scale)") +
+  guides(color = F) +
+  theme_update() +
+  coord_polar()
+cowplot::ggdraw(g) +
+  theme(plot.background = element_rect(fill = "#171717", color = NA))
+ggsave(here("Images/KenyaPopGender.png"), width = 9, height = 9)
+```
+
+```{r ag_household}
+df_ag %>% 
+  select(is.numeric) %>%
+  ggcorr(max_size = 6,
+  size = 3,
+  hjust = 0.69,
+  angle = -45,
+  low = "#FFFFFF",
+  mid = "#008C51",
+  high = "#000000") +
+  theme_void() +
+  labs(title = "No Correlation Between Average Household Size and Any Kind of Farming",
+       subtitle = "Negative Correlations Mostly a Result of Lack of Data") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+
+# Make farming negative values
+df_ag_viz <- df_ag %>%
+  drop_na(NumberOfHouseholds) %>%
+  mutate(NumberOfHouseholds = ifelse(is.na(NumberOfHouseholds),
+                                     Population/AverageHouseholdSize,
+                                     NumberOfHouseholds)) %>%
+  pivot_longer(cols = c("Farming", "NumberOfHouseholds"), names_to = "FarmingvsSize", values_to = "FarmsHouseholds") %>%
+  mutate(FarmsHouseholds = ifelse(FarmingvsSize == "Farming",
+                                  -1*FarmsHouseholds,
+                                  FarmsHouseholds))
+breaks_values <- pretty(as_vector(df_ag_viz %>% filter(County != "Kenya") %>% select(FarmsHouseholds)), n = 10)
+# df_ag %>% 
+#   ggplot(aes(x = fct_reorder(County, AverageHouseholdSize), y = AverageHouseholdSize, fill = fct_reorder(County, AverageHouseholdSize))) +
+#   geom_col() +
+#   geom_text(aes(label = round(AverageHouseholdSize, 1), 
+#                 y = AverageHouseholdSize + 0.06,
+#                 color = fct_reorder(County, AverageHouseholdSize))) +
+#   scale_y_continuous(breaks = pretty_breaks(n = 7)) +
+#   scale_fill_manual(values = rev(col(nrow(df_ag)))) +
+#   scale_color_manual(values = rev(col(nrow(df_ag)))) +
+#   labs(title = "Average Household Size") +
+#   coord_flip() +
+#   theme(legend.position = "none",
+#         axis.text.y = element_text(color = "gray70", size = 10))
+(gg_ag_viz <- df_ag_viz %>% 
+  filter(County != "Kenya" & County != "Nairobi City") %>%
+  ggplot(aes(x = fct_reorder(County, AverageHouseholdSize), 
+             y = FarmsHouseholds, 
+             fill = fct_reorder(County, AverageHouseholdSize))) +
+  geom_col() +
+  geom_hline(yintercept = 0, linetype = "longdash", color = "gray10") +
+  # geom_text(aes(label = paste("Population:", comma(Population)),
+  #               y = ifelse(FarmsHouseholds == "NumberofHouseholds",
+  #                          FarmsHouseholds + 80000, 
+  #                          ""),
+  #               color = fct_reorder(County, AverageHouseholdSize))) +
+  scale_y_continuous(breaks = breaks_values, labels = scales::comma(abs(breaks_values))) +
+  scale_fill_manual(values = rev(col(nrow(df_ag)))) +
+  # scale_color_manual(values = rev(col(nrow(df_ag_viz)))) +
+  labs(title = "Household Size vs Population Growing Farming Crops in Kenya",
+       caption = "\nNo Data Available for Households in Nairobi City, Tana River, West Pokot, Trans Nzoia, Uasin Gishu, or Homa Bay.") +
+  coord_flip() +
+  theme(legend.position = "none",
+        axis.text.y = element_text(color = "gray70", size = 10),
+        plot.caption = element_text(vjust = -5),
+        plot.subtitle = element_text(hjust = 0.5)))
+gg_ag_viz + geom_segment(aes(y = 0, yend = 1100000, x = "Kiambu", xend = "Kiambu"),
+                 arrow = grid::arrow(length = unit(0.3, "cm"),
+                                                       ends = "both"), color = "gray70", size = 1.5) +
+  geom_segment(aes(y = -400000, yend = 0, x = "Kiambu", xend = "Kiambu"),
+                 arrow = grid::arrow(length = unit(0.3, "cm"),
+                                                       ends = "both"), color = "gray70", size = 1.5)
+ggsave(here("Images/HouseholdvsFarmingKenya.png"), width = 12, height = 9)
+```
+
+```{rkenyamap}
+kenya_sf <- rKenyaCensus::KenyaCounties_SHP %>%
+  st_as_sf() %>%
+  st_simplify(dTolerance = 200) %>%
+  mutate(County = str_to_title(County)) %>%
+  left_join(kenya_census, by = c("County"))
+
+(gg_sf <- kenya_sf %>%
+  ggplot(aes(fill = as.numeric(Farming)/as.numeric(Population.y))) +
+  geom_sf() +
+  geom_sf_text(aes(label = paste0(County, ":\n", prettyNum(Population.y, big.mark = ",")), 
+                   size = Area), 
+               show.legend = F,
+               family = "Roboto Condensed",
+               color = "gray10") +
+  scale_size(range = c(0, 4.5)) +
+  scale_fill_distiller(palette = "Greens", direction = 1, 
+                       breaks = pretty_breaks(n = 5),
+                       labels = percent) +
+  labs(fill = "Farming\nPopulation",
+       caption = "Text represents overall population.") +
+  cowplot::theme_map() +
+  theme(legend.position = c(0.13, 0.15),
+        plot.title = element_text(hjust = 0.5, family = "Roboto Condensed"),
+        panel.background = element_rect(fill = "#171717", color = "#171717"),
+        legend.text = element_text(family = "Roboto Condensed", color = "gray70"), 
+        legend.title = element_text(color = "gray70", family = "Roboto Condensed"),
+        plot.caption = element_text(color = "grey35", size = 10, family = "Roboto Condensed", vjust = 10)))
+(cow_gg_sf <- cowplot::ggdraw(gg_sf) +
+  theme(plot.background = element_rect(fill = "#171717", color = NA)))
+```
+
+```{r paste-together}
+gg_ag_viz +
+  theme(panel.grid = element_blank()) +
+  annotation_custom(ggplotGrob(gg_sf), xmin = "Nakuru", xmax = "Mandera", ymin = 500000, ymax = 1100000)
+```
+
+
