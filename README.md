@@ -21,6 +21,8 @@ Quick Link
 
 ***
 
+![](Images/MapandHouseHold.png)
+
 ### [2021/03](https://github.com/rfordatascience/tidytuesday/blob/master/data/2021/2021-01-19/readme.md) 🇰🇪 Kenya Census by [Shelmith Kariuki](https://github.com/Shelmith-Kariuki/rKenyaCensus)
 
 
